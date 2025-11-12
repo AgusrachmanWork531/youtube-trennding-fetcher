@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # Redis cache service
+  redis:
+    image: redis:7-alpine
+    container_name: youtube-fetcher-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - youtube-fetcher-network
+
+  # Main application service
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: youtube-fetcher-app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # YouTube API
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
+
+      # Default settings
+      - DEFAULT_COUNTRY=${DEFAULT_COUNTRY:-ID}
+      - DEFAULT_CATEGORIES=${DEFAULT_CATEGORIES:-music,news,tech,entertainment,gaming}
+      - TREND_LIMIT=${TREND_LIMIT:-10}
+
+      # Scheduler
+      - SCHEDULER_CRON=${SCHEDULER_CRON:-0 0 * * *}
+      - SCHEDULER_ENABLED=${SCHEDULER_ENABLED:-true}
+
+      # Redis
+      - REDIS_URL=redis://redis:6379/0
+      - REDIS_ENABLED=${REDIS_ENABLED:-true}
+
+      # API settings
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - API_WORKERS=${API_WORKERS:-1}
+
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import httpx; httpx.get(\"http://localhost:8000/health\", timeout=5.0)' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - youtube-fetcher-network
+
+volumes:
+  redis_data:
+    driver: local
+
+networks:
+  youtube-fetcher-network:
+    driver: bridge
