@@ -40,9 +40,12 @@ pipeline {
         DOCKER_CREDENTIALS = 'docker-hub-credentials'
         YOUTUBE_API_KEY_CREDENTIALS = 'youtube-api-key'
         VPS_SSH_CREDENTIALS = 'vps-ssh-password'
-        GIT_REPO_URL = 'github-repo-url'
-        VPS_HOST = 'vps-host'
-        DOCKER_REGISTRY = 'docker-registry'
+
+        // These will be loaded from Jenkins Global Environment Variables
+        // Set in: Manage Jenkins -> Configure System -> Global properties -> Environment variables
+        // GIT_REPO_URL = loaded from Jenkins env
+        // VPS_HOST = loaded from Jenkins env
+        // DOCKER_REGISTRY = loaded from Jenkins env
     }
 
     // STAGES - TAHAPAN EKSEKUSI PIPELINE SECARA BERURUTAN
@@ -71,7 +74,7 @@ pipeline {
                     ],
                     userRemoteConfigs: [[
                         credentialsId: "${GITHUB_CREDENTIALS}",
-                        url: "${GIT_REPO_URL}"
+                        url: "${env.GIT_REPO_URL}"
                     ]]
                 ])
 
@@ -243,16 +246,26 @@ pipeline {
                             variable: 'YOUTUBE_API_KEY'
                         )
                     ]) {
-                        sh '''#!/bin/bash
+                        sh """#!/bin/bash
                             set -e
                             # Mask sensitive data in logs
-                            echo "🔗 Connecting to VPS: ${VPS_USER}@***MASKED_HOST***"
+                            echo "🔗 Connecting to VPS: \${VPS_USER}@***MASKED_HOST***"
 
-                            # Use actual VPS_HOST for connection
-                            VPS_IP="${VPS_HOST}"
+                            # Get environment variables from Jenkins
+                            ACTUAL_VPS_HOST="${env.VPS_HOST}"
+                            ACTUAL_DOCKER_REGISTRY="${env.DOCKER_REGISTRY}"
+                            IMAGE_TAG="${IMAGE_NAME}:${BUILD_VERSION}"
 
-                            # DEPLOY TO VPS VIA SSH DENGAN SSHPASS
-                            sshpass -p "${VPS_PASS}" ssh -o StrictHostKeyChecking=no ${VPS_USER}@${VPS_HOST} bash -s << 'EOF'
+                            # Pass variables to remote script
+                            sshpass -p "\${VPS_PASS}" ssh -o StrictHostKeyChecking=no \${VPS_USER}@\${ACTUAL_VPS_HOST} \\
+                                "export IMAGE_NAME=${IMAGE_NAME} && \\
+                                export BUILD_VERSION=${BUILD_VERSION} && \\
+                                export CONTAINER_NAME=${CONTAINER_NAME} && \\
+                                export REDIS_CONTAINER_NAME=${REDIS_CONTAINER_NAME} && \\
+                                export DEPLOY_PORT=${DEPLOY_PORT} && \\
+                                export YOUTUBE_API_KEY='\${YOUTUBE_API_KEY}' && \\
+                                export PROJECT_NAME=${PROJECT_NAME} && \\
+                                bash -s" << 'EOFREMOTE'
 set -e
 echo "=== VPS Deployment Started ==="
 
@@ -376,10 +389,10 @@ echo "🏥 Health Check: Available at /health endpoint"
 echo "📊 Metrics: Available at /metrics endpoint"
 echo "======================================="
 echo "📌 Make sure port ${DEPLOY_PORT} is open in your VPS provider's firewall/security group"
-EOF
+EOFREMOTE
 
                             echo "✅ SSH deployment completed!"
-                        '''
+                        """
                     }
                 }
             }
@@ -397,10 +410,17 @@ EOF
                             passwordVariable: 'VPS_PASS'
                         )
                     ]) {
-                        sh '''#!/bin/bash
+                        sh """#!/bin/bash
                             echo "🔍 Running deployment verification..."
 
-                            sshpass -p "${VPS_PASS}" ssh -o StrictHostKeyChecking=no ${VPS_USER}@${VPS_HOST} bash -s << 'EOF'
+                            # Get environment variables
+                            ACTUAL_VPS_HOST="${env.VPS_HOST}"
+
+                            # Pass variables to remote script
+                            sshpass -p "\${VPS_PASS}" ssh -o StrictHostKeyChecking=no \${VPS_USER}@\${ACTUAL_VPS_HOST} \\
+                                "export PROJECT_NAME=${PROJECT_NAME} && \\
+                                export DEPLOY_PORT=${DEPLOY_PORT} && \\
+                                bash -s" << 'EOFVERIFY'
 # Check if containers are running
 echo "=== Container Status ==="
 docker ps | grep ${PROJECT_NAME} || echo "⚠️  No containers found"
@@ -419,8 +439,8 @@ docker system df
 
 echo ""
 echo "✅ Verification complete!"
-EOF
-                        '''
+EOFVERIFY
+                        """
                     }
                 }
             }
