@@ -39,7 +39,10 @@ pipeline {
         GITHUB_CREDENTIALS = 'github-credentials'
         DOCKER_CREDENTIALS = 'docker-hub-credentials'
         YOUTUBE_API_KEY_CREDENTIALS = 'youtube-api-key'
-        VPS_SSH_CREDENTIALS = 'vps-ssh-password'
+        VPS_SSH_CREDENTIALS = 'vps-ssh-password',
+        GIT_REPO_URL = 'GIT_REPO_URL',
+        VPS_HOST = 'VPS_HOST',
+        DOCKER_REGISTRY = 'DOCKER_REGISTRY'
     }
 
     // STAGES - TAHAPAN EKSEKUSI PIPELINE SECARA BERURUTAN
