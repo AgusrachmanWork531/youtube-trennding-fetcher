@@ -39,10 +39,10 @@ pipeline {
         GITHUB_CREDENTIALS = 'github-credentials'
         DOCKER_CREDENTIALS = 'docker-hub-credentials'
         YOUTUBE_API_KEY_CREDENTIALS = 'youtube-api-key'
-        VPS_SSH_CREDENTIALS = 'vps-ssh-password',
-        GIT_REPO_URL = 'GIT_REPO_URL',
-        VPS_HOST = 'VPS_HOST',
-        DOCKER_REGISTRY = 'DOCKER_REGISTRY'
+        VPS_SSH_CREDENTIALS = 'vps-ssh-password'
+        GIT_REPO_URL = 'github-repo-url'
+        VPS_HOST = 'vps-host'
+        DOCKER_REGISTRY = 'docker-registry'
     }
 
     // STAGES - TAHAPAN EKSEKUSI PIPELINE SECARA BERURUTAN
@@ -155,15 +155,19 @@ pipeline {
                     try {
                         sh '''#!/bin/bash
                             echo "Building test image..."
-                            docker build --target builder -t ${IMAGE_NAME}:test-${BUILD_VERSION} .
+                            docker build \
+                                --platform linux/amd64 \
+                                --target builder \
+                                -t ${IMAGE_NAME}:test-${BUILD_VERSION} .
 
                             echo ""
                             echo "Running pytest..."
                             docker run --rm \
+                                --platform linux/amd64 \
                                 -v $(pwd):/app \
                                 -w /app \
                                 ${IMAGE_NAME}:test-${BUILD_VERSION} \
-                                bash -c "pip install pytest pytest-asyncio pytest-cov && pytest tests/ -v --tb=short" || true
+                                bash -c "pip install --upgrade pip && pip install pytest pytest-asyncio pytest-cov && pytest tests/ -v --tb=short || echo '⚠️  Tests failed but continuing...'"
 
                             echo "✅ Tests completed"
                         '''
