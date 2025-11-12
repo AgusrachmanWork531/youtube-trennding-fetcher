@@ -21,8 +21,8 @@ pipeline {
         //   - VPS_HOST = your_vps_ip
         //   - GIT_REPO_URL = your_github_repo_url
 
-        IMAGE_NAME = "${env.DOCKER_REGISTRY}/${PROJECT_NAME}"
-        BUILD_VERSION = "${env.BUILD_NUMBER}"
+        IMAGE_NAME = "${DOCKER_REGISTRY}/${PROJECT_NAME}"
+        BUILD_VERSION = "${BUILD_NUMBER}"
         CONTAINER_NAME = "${PROJECT_NAME}-app"
         REDIS_CONTAINER_NAME = "${PROJECT_NAME}-redis"
 
@@ -68,7 +68,7 @@ pipeline {
                     ],
                     userRemoteConfigs: [[
                         credentialsId: "${GITHUB_CREDENTIALS}",
-                        url: "${env.GIT_REPO_URL}"
+                        url: "${GIT_REPO_URL}"
                     ]]
                 ])
 
